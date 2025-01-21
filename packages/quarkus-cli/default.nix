@@ -1,0 +1,1 @@
+/etc/nixos/packages/quarkus-cli/3.14.4.nix
