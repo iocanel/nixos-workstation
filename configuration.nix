@@ -33,6 +33,7 @@
     quarkus-cli = pkgs.callPackage /etc/nixos/packages/quarkus-cli/default.nix { };
     quarkus-cli-3-14-3 = pkgs.callPackage /etc/nixos/packages/quarkus-cli/3-14-3.nix { };
     quarkus-cli-3-14-4 = pkgs.callPackage /etc/nixos/packages/quarkus-cli/3-14-4.nix { };
+    idpbuilder = pkgs.callPackage /etc/nixos/packages/idpbuilder/0.8.1.nix { };
   in
 {
   imports =
@@ -280,6 +281,7 @@
      kubernetes-helm
      kind
      minikube
+     idpbuilder
      #
      # Desktop environments
      #
