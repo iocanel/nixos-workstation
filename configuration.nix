@@ -34,11 +34,30 @@
     quarkus-cli-3-14-3 = pkgs.callPackage /etc/nixos/packages/quarkus-cli/3-14-3.nix { };
     quarkus-cli-3-14-4 = pkgs.callPackage /etc/nixos/packages/quarkus-cli/3-14-4.nix { };
     idpbuilder = pkgs.callPackage /etc/nixos/packages/idpbuilder/0.8.1.nix { };
+    jmc = pkgs.callPackage /etc/nixos/packages/jmc/default.nix { };
+    kagent = pkgs.callPackage /etc/nixos/packages/kagent/default.nix { };
+    cursor-ide = pkgs.callPackage /etc/nixos/packages/cursor-ide/default.nix { };
+    udev-scripts = pkgs.callPackage /etc/nixos/packages/udev-scripts/default.nix { };
+    
+    #
+    # Allow cherry-picking from the unstable
+    #
+    unstable = import (builtins.fetchTarball { url = "https://nixos.org/channels/nixos-unstable/nixexprs.tar.xz"; }) {
+      config = { allowUnfree = true; };
+    };
+    
+  #  home-manager = import (builtins.fetchTarball { url = "https://github.com/nix-community/home-manager/archive/master.tar.gz"; }) {
+  #    inherit (unstable) pkgs;
+  #    config = { allowUnfree = true; };
+  #  };
   in
 {
   imports =
     [
       ./hardware-configuration.nix
+      ./modules/deluge.nix
+      ./modules/superdrive.nix
+      ./modules/monitor-hotplug.nix
       <home-manager/nixos>
     ];
 
@@ -49,7 +68,16 @@
   boot.loader.grub.efiSupport = true;
   boot.loader.grub.useOSProber = true;
   boot.loader.systemd-boot.enable = true;
-  networking.hostName = "nixos"; # Define your hostname.
+
+  boot.binfmt.emulatedSystems = [ "aarch64-linux" ];
+  boot.kernelModules = [ "uinput" ];
+
+  networking = {
+    hostName = "nixos";
+    hosts = {
+      "my-app.local" = [ "127.0.0.1" ];
+    };
+  };
   
   #networking.wireless.enable = true;  # Enables wireless support via wpa_supplicant.
 
@@ -82,26 +110,58 @@
   };
 
   services = {
+    blueman = {
+      enable = true;
+    };
+    dbus = {
+      enable = true;
+      packages = [ pkgs.gamemode ];
+    };
+    
+    displayManager = {
+      sddm = {
+        enable = false;
+        theme = "chili";
+      };
+    };
+    
+    greetd = {
+      enable = true;
+      vt = 7;
+      settings = {
+        # Greeter UI that prompts for your username/password, then launches a session
+        default_session = {
+          command = "${pkgs.greetd.tuigreet}/bin/tuigreet --remember --time --cmd ${pkgs.swayfx}/bin/sway";
+          user = "greeter";
+        };
+      };
+    };
+
     # Configure keymap in X11
     xserver = {
-      enable = true;
+      enable = false;
       desktopManager = {
         xterm.enable = true;
       };
-      displayManager = {
-      	gdm = {
-	        enable = false;
-	      };
-      };
       windowManager = {
         i3 = {
-          enable = true;
+          enable = false;
           extraPackages = with pkgs; [
             dmenu
 	          rofi
 	          i3lock
 	          i3blocks
           ];
+        };
+      };
+      displayManager = {
+    	  gdm = {
+          enable = false;
+        };
+      };
+      desktopManager = {
+        gnome = {
+          enable = false;
         };
       };
       xkb = {
@@ -111,12 +171,30 @@
       };
     };
     
+    pulseaudio = {
+      enable = false;
+      support32Bit = true;
+      package = pkgs.pulseaudioFull;
+      extraConfig = ''
+        load-module module-switch-on-connect
+        load-module module-switch-on-port-available
+        load-module module-detect
+        load-module module-bluetooth-policy
+        load-module module-bluetooth-discover
+      '';
+      
+      # Disabled extraConfig
+      #  load-module module-udev-detect
+      #  load-module module-alsa-source device=hw:0,0
+      #  load-module module-combine-sink
+    };
+    
     udisks2 = {
       enable = true;
     };
     
     pipewire = {
-      enable = false;
+      enable = true;
       alsa.enable = true;
       alsa.support32Bit = true;
       pulse.enable = true;
@@ -125,13 +203,13 @@
 
     displayManager = {
       defaultSession = "none+i3";
-      sddm = {
-        enable = true;
-        theme = "chili";
-      };
+     # sddm = {
+     #   enable = true;
+     #   theme = "chili";
+     # };
     };
 
-    clipmenu.enable = true;
+    clipmenu.enable = false;
     openssh.enable = true;
     printing.enable = true;
     avahi = {
@@ -139,36 +217,53 @@
       nssmdns4 = true;
       openFirewall = true;
     };
-    # Media Server
-    deluge = {
-      enable = true;
-      web = {
-        enable = true;
-        port = 8112;
-        openFirewall = true;
-      };
-      config = {
-        download_location = "/mnt/downloads/";
-        max_upload_speed = "1000.0";
-        share_ratio_limit = "2.0";
-        allow_remote = true;
-        daemon_port = 58846;
-        listen_ports = [ 6881 6889 ];
-      };
-      extraPackages = with pkgs; [unrar unzip gnutar bzip2 xz p7zip ];
-    };
   };
     
   # Define a user account. Don't forget to set a password with ‘passwd’.
   users = {
     defaultUserShell = pkgs.fish;
-    users.iocanel = {
-      isNormalUser = true;
-      description = "Ioannis Canellos";
-      extraGroups = [ "root" "wheel" "audio" "video" "docker" "networkmanager" "disk" "transmission" "deluge" ];
+    groups = {
+      iocanel = {
+      };
+      www-data = {
+        gid = 33;
+      };
+      ydotool = {
+      };
+    };
+    users = {
+      www-data = {
+        uid = 33;
+        isSystemUser = true;
+        group = "www-data";
+      };
+      iocanel = {
+        isNormalUser = true;
+        description = "Ioannis Canellos";
+        extraGroups = [ "root" "wheel" "users" "iocanel" "audio" "video" "adbusers" "docker" "www-data" "networkmanager" "disk" "transmission" "deluge" "input" ];
+        linger = true;
+      };
     };
   };
 
+  xdg = {
+    portal = {
+      enable = true;
+      extraPortals = [
+        pkgs.xdg-desktop-portal-wlr
+        pkgs.xdg-desktop-portal-gtk
+      ];
+      config = {
+        common = {
+          # single string, not a list
+          default = "wlr";
+          # explicitly use GTK for file chooser dialogs
+          "org.freedesktop.impl.portal.FileChooser" = "gtk";
+        };
+      };
+    };
+  };
+ 
   home-manager = {
     users.iocanel = /home/iocanel/.config/home-manager/home.nix;
   };
@@ -185,7 +280,6 @@
   # Overlays
    nixpkgs.overlays = [
     (import /etc/nixos/overlays/custom-java-overlay.nix)
-    (import /etc/nixos/overlays/emacs-xwidgets-overlay.nix)
   ];
 
   # List packages installed in system profile. To search, run:
@@ -201,6 +295,9 @@
      pinentry-curses
      pinentry-qt
      stow
+     # Android
+     android-tools
+     android-udev-rules
      #
      # AI
      #
@@ -226,6 +323,7 @@
      #
      # Editors
      #
+     webkitgtk_4_1
      emacs
      neovim
      #
@@ -240,14 +338,17 @@
      libtool
      # Java
      temurin-bin-21
+     temurin-bin-23
      maven
      gradle
      jbang
      quarkus-cli
+     spring-boot-cli
+     jmc
      # Javascript
      nodejs
-     nodejs_18
      yarn-berry
+     typescript-language-server
      # Go
      go
      # Python
@@ -259,13 +360,18 @@
      rustc
      rustfmt
      cargo
+     rust-analyzer
      # Suggested by:  https://github.com/NixOS/nixpkgs/blob/0109d6587a587170469cb11afc18a3afe71859a3/doc/languages-frameworks/rust.section.md#using-the-rust-nightlies-overlay
      binutils
      pkg-config
      
-
      # SQL
      sqlite
+     # Stores     
+     redis
+     # Tools
+     unstable.code-cursor
+
      # Utils
      #Devices
      sg3_utils
@@ -277,24 +383,27 @@
      # Kubernetes
      #
      kubectl
+     istioctl
      k9s
      kubernetes-helm
      kind
      minikube
      idpbuilder
+     kagent
      #
      # Desktop environments
      #
      xorg.xhost
      i3
      i3blocks
-     sddm
+     kdePackages.sddm
      sddm-chili-theme
      #
      # Multimedia
      #
      pulseaudio
      pavucontrol
+     pwvucontrol
      nitrogen
      ffmpeg
      v4l-utils
@@ -304,8 +413,6 @@
      opencv
      audacity
      obs-studio
-     kdenlive
-     vocal
      newsflash
      #
      # Network and Internet
@@ -359,11 +466,26 @@
      
      # Overrides
      dotnet-sdk
+     
+     #Virtualization
+     qemu
+     qemu_kvm
+
+     # Wayland/Sway desktop bits
+     swayfx swaybg swayidle swaylock-effects waybar wofi wofi-pass
+     wl-clipboard clipman
+     grim slurp swappy wf-recorder
+     mako kanshi brightnessctl
   ];
 
   fonts.packages = with pkgs; [
+     nerd-fonts.hack
+     nerd-fonts.fira-code
+     nerd-fonts.inconsolata
+     nerd-fonts.jetbrains-mono
+     nerd-fonts.ubuntu-mono
+     nerd-fonts.ubuntu-sans
      font-awesome
-     nerdfonts
      hack-font
      fira-code
      powerline-fonts
@@ -405,26 +527,39 @@
       enable = true;
     };
     
+    xwayland = {
+      enable = true;
+    };
+    
+    sway = {
+      enable = true;
+      package = pkgs.swayfx;
+    };
+    
+    ydotool = {
+      enable = true;
+      group = "input";
+    };
   };
 
   #
   # Hardware
   #
   hardware = {
-    pulseaudio = {
+    bluetooth = {
       enable = true;
-      support32Bit = true;
-      package = pkgs.pulseaudioFull;
-      extraConfig = ''
-        load-module module-switch-on-connect
-        load-module module-switch-on-port-available
-        load-module module-detect
-      '';
-      
-      # Disabled extraConfig
-      #  load-module module-udev-detect
-      #  load-module module-alsa-source device=hw:0,0
-      #  load-module module-combine-sink
+      powerOnBoot = true;
+      settings = {
+        General = {
+          Enable = "Source,Sink,Media,Socket";
+        };
+      };
+    };
+    superdrive = {
+      enable = true;
+    };
+    monitor-hotplug = {
+      enable = true;
     };
   };
 
@@ -438,6 +573,8 @@
   virtualisation.docker.enable=true;
   virtualisation.docker.storageDriver="overlay2";
   virtualisation.docker.daemon.settings.ipv6 = false;
+  virtualisation.oci-containers.backend = "docker";
+
 
   # Open ports in the firewall.
   networking = {
@@ -468,10 +605,30 @@
   # this value at the release version of the first install of this system.
   # Before changing this value read the documentation for this option
   # (e.g. man configuration.nix or on https://nixos.org/nixos/options.html).
-  system.stateVersion = "24.11";
+  system.stateVersion = "25.05";
+
+  # Don’t rebuild an immutable man-db cache on every nixos-rebuild
+  documentation.man.generateCaches = false;
 
   systemd = {
+    mounts = [
+      {
+        what = "192.168.1.250:/volume2/downloads";
+        where = "/mnt/downloads";
+        type = "nfs";
+        options = "defaults,timeo=10,retrans=3,hard,noauto,x-systemd.automount,x-systemd.device-timeout=10s";
+      }
+      {
+        what = "192.168.1.250:/volume2/media";
+        where = "/mnt/media";
+        type = "nfs";
+        options = "defaults,timeo=10,retrans=3,hard,noauto,x-systemd.automount,x-systemd.device-timeout=10s";
+      }
+    ];
     services = {
+      docker = {
+        path = [ pkgs.glibc.getent ];
+      };
       fc-cache-update = {
         description = "Update font cache";
         wantedBy = [ "multi-user.target" ];
@@ -482,47 +639,36 @@
           RemainAfterExit = true;
         };
       };
-      hotplug-monitor = {
-        description = "Hotplug monitor";
-        wantedBy = [ "graphical.target" ];
-        serviceConfig = {
-          Type = "oneshot";
-          ExecStart = "${pkgs.bash}/bin/bash -c /etc/udev/scripts/monitor-hotplug.sh";
-          Restart = "on-failure";
-        };
-      };
-      emby-server = {
-        description = "Emby Server";
-        wantedBy = [ "multi-user.target" ];
-        after = [ "network.target" "docker.service" ];
-        serviceConfig = {
-          Type = "simple";
-          ExecStart = "${pkgs.docker}/bin/docker run -d --name emby-server -e UID=1000 -e GUID=100 -e GIDLIST=100 -p 8096:8096 -p 8920:8920 -v /home/iocanel/.config/emby/:/config -v /mnt/media:/mnt/media --cpus=2 --memory=4g --restart on-failure emby/embyserver:4.9.0.26";
-          ExecStop = "${pkgs.docker}/bin/docker kill emby-server && ${pkgs.docker}/bin/docker rm -f emby-server";
-          RemainAfterExit = true;
-        };
-      };
-      check-media-mount = {
-        description = "Start/Stop media services based on mount status";
-        after = [ "network.target" ];
-        serviceConfig = {
-          ExecStart = "/etc/local/bin/check-media-mounts.sh";
-          Type = "oneshot";
-          RemainAfterExit = true; # Prevents the service from being re-triggered unnecessarily
-          TimeoutStartSec = "30s";
-        };
-        wantedBy = [ "check-media-mount.path" ];
-      };
+#      hotplug-monitor = {
+#        description = "Hotplug monitor";
+#        wantedBy = [ "graphical.target" ];
+#        serviceConfig = {
+#          Type = "oneshot";
+#          ExecStart = "${pkgs.bash}/bin/bash -c /etc/udev/scripts/monitor-hotplug.sh";
+#          Restart = "on-failure";
+#        };
+#      };
+      #check-media-mount = {
+      #  description = "Start/Stop media services based on mount status";
+      #  after = [ "network.target" ];
+      #  serviceConfig = {
+      #    ExecStart = "/etc/local/bin/check-media-mounts.sh";
+      #    Type = "oneshot";
+      #    RemainAfterExit = true; # Prevents the service from being re-triggered unnecessarily
+      #    TimeoutStartSec = "30s";
+      #  };
+      #  wantedBy = [ "check-media-mount.path" ];
+      #};
     };
     
     paths = {
-      check-media-mount = {
-        description = "Monitor media mounts";
-        pathConfig = {
-          PathExists = "/mnt/media/healthcheck";  # Change this to your actual mount point
-        };
-        wantedBy = [ "multi-user.target" ];
-      };
+      #check-media-mount = {
+      #  description = "Monitor media mounts";
+      #  pathConfig = {
+      #    PathExists = "/mnt/media/healthcheck";  # Change this to your actual mount point
+      #  };
+      #  wantedBy = [ "multi-user.target" ];
+      #};
     };
 
     network = {
@@ -570,6 +716,8 @@
             storeOnly = true;
           };
         };
+        swaylock = {
+        };
       };
     };
   };
@@ -577,46 +725,62 @@
   environment.variables = {
     DOCKER_BUILDKIT = 1;  # Globally enable BuildKit
   };
+  
+   environment.sessionVariables = {
+     XDG_CURRENT_DESKTOP = "sway";
+     XDG_SESSION_DESKTOP = "sway";
+     MOZ_ENABLE_WAYLAND = "1";
+     QT_QPA_PLATFORM = "wayland";
+     QT_WAYLAND_DISABLE_WINDOWDECORATION = "1";
+     SDL_VIDEODRIVER = "wayland";
+     NIXOS_OZONE_WL = "1";  # Chromium/Electron
+   };
 
   #
   # udev
   #
-  environment.etc."udev/scripts/monitor-hotplug.sh" = {
+#  environment.etc."udev/scripts/monitor-hotplug.sh" = {
+#    text = ''
+#    #!/bin/bash
+#    export DISPLAY=:0
+#    EXTERNAL_MON=`${pkgs.xorg.xrandr}/bin/xrandr --query | grep '\bconnected\b' | ${pkgs.gawk}/bin/awk -F" " '{print $1}' | grep -v eDP-1`
+#    if [ -z "$EXTERNAL_MON" ]; then
+#      echo "No external monitor found."
+#      exit 0
+#    fi
+#    echo "Setting $EXTERNAL_MON left of main."
+#
+#    ${pkgs.xorg.xrandr}/bin/xrandr --output $EXTERNAL_MON --off
+#    ${pkgs.xorg.xrandr}/bin/xrandr --output $EXTERNAL_MON --auto --left-of eDP-1
+#    ${pkgs.xorg.xrandr}/bin/xrandr --output $EXTERNAL_MON --left-of eDP-1
+#    '';
+#    mode = "0755";
+#  };
+
+  environment.etc."udev/scripts/deauth-usb.sh" = {
     text = ''
     #!/bin/bash
-    export DISPLAY=:0
-    EXTERNAL_MON=`${pkgs.xorg.xrandr}/bin/xrandr --query | grep '\bconnected\b' | ${pkgs.gawk}/bin/awk -F" " '{print $1}' | grep -v eDP-1`
-    if [ -z "$EXTERNAL_MON" ]; then
-      echo "No external monitor found."
-      exit 0
-    fi
-    echo "Setting $EXTERNAL_MON left of main."
-
-    ${pkgs.xorg.xrandr}/bin/xrandr --output $EXTERNAL_MON --off
-    ${pkgs.xorg.xrandr}/bin/xrandr --output $EXTERNAL_MON --auto --left-of eDP-1
-    ${pkgs.xorg.xrandr}/bin/xrandr --output $EXTERNAL_MON --left-of eDP-1
+    echo 0 > "/sys/$1/authorized"
     '';
     mode = "0755";
   };
 
 
-  services.udev.extraRules = ''
-    # Rule to deauthorize USB device
-    ACTION=="add", SUBSYSTEM=="usb", RUN+="${pkgs.bash}/bin/bash -c echo 0 > /sys/$devpath/authorized"
+  services.udev = {
+    packages = [ udev-scripts ];
+      
+    extraRules = ''
+      # Rule to deauthorize USB device
+      #ACTION=="add", SUBSYSTEM=="usb", ENV{DEVPATH}!="", RUN+="/lib/udev/scripts/deauth-usb.sh %p"
+        
+      # Rule to configure monitors on hotplug event
+      #ACTION=="add", SUBSYSTEM=="drm", RUN+="${pkgs.systemd}/bin/systemctl start hotplug-monitor.service"
+      
+      # Rule to ignore /dev/video5 as it is not working properly
+      #KERNEL=="video5", SUBSYSTEM=="video4linux", OPTIONS+="ignore_device"
+    '';
+  };
 
-    #
-    # Work in progress
-    #
-
-    # Rule to configure monitors on hotplug event
-    ACTION=="add", SUBSYSTEM=="drm", RUN+="${pkgs.systemd}/bin/systemctl start hotplug-monitor.service"
-
-    # Rule to configure apple superdrive
-    ACTION=="add", ATTRS{idProduct}=="1500", ATTRS{idVendor}=="05ac", DRIVERS=="usb", RUN+="${pkgs.sg3_utils}/bin/sg_raw %r/sr%n EA 00 00 00 00 00 01"
-
-    # Rule to ignore /dev/video5 as it is not working properly
-    KERNEL=="video5", SUBSYSTEM=="video4linux", OPTIONS+="ignore_device"
-  '';
 
   #
   # Package activation
@@ -632,4 +796,3 @@
     '';
   };
 }
-

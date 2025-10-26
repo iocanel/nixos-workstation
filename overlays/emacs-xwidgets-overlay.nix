@@ -1,14 +1,20 @@
 # Overlay to build Emacs with GTK3 and Xwidgets support.
-# I prefers the overlay approach as the other nixos approaches where causing conflicts.
-# Nowdays, xwidgets crashes unless started: `emacs -xrm "emacs.synchronous: true"`.
+# I prefer the overlay approach as the other NixOS options were causing conflicts.
+# Note: Xwidgets currently crashes unless started with: `emacs -xrm "emacs.synchronous: true"`
+
 self: super:
 
 let
-  emacsWithGTK3AndXwidgets = super.emacs.override {
-    withGTK3 = true;
-    withXwidgets = true;
-  };
+  # Use the correct version of webkitgtk
+  webkitgtk = super.webkitgtk_4_0 or super.webkitgtk;
 in
 {
-  emacs = emacsWithGTK3AndXwidgets;
+  emacs = super.emacs.overrideAttrs (oldAttrs: {
+    configureFlags = (oldAttrs.configureFlags or []) ++ [
+      "--with-xwidgets"
+      "--with-x-toolkit=gtk3"
+    ];
+
+    buildInputs = (oldAttrs.buildInputs or []) ++ [ webkitgtk ];
+  });
 }
