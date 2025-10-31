@@ -390,46 +390,7 @@
      minikube
      idpbuilder
      kagent
-     #
-     # Desktop environments
-     #
-     xorg.xhost
-     i3
-     i3blocks
-     kdePackages.sddm
-     sddm-chili-theme
-     #
-     # Multimedia
-     #
-     pulseaudio
-     pavucontrol
-     pwvucontrol
-     nitrogen
-     ffmpeg
-     v4l-utils
-     guvcview
-     mpv
-     gimp
-     opencv
-     audacity
-     obs-studio
-     newsflash
-     #
-     # Network and Internet
-     #
-     zulip
-     slack
-     discord
-     dropbox
-     remmina
-     wget
-     curl
-     wireshark
-     openvpn
-     networkmanager-openvpn
-     networkmanagerapplet
-     openssl
-     bluez
+
      #
      # Office
      #
