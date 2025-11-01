@@ -8,19 +8,27 @@
     [ (modulesPath + "/installer/scan/not-detected.nix")
     ];
 
-  boot.initrd.availableKernelModules = [ "ahci" "xhci_pci" "thunderbolt" "nvme" "usb_storage" "usbhid" "sd_mod" "sr_mod" ];
+  boot.initrd.availableKernelModules = [ "ahci" "xhci_pci" "thunderbolt" "nvme" "usb_storage" "usbhid" "sd_mod" "sr_mod" "rtsx_pci_sdmmc" "r8152" "usbnet" "hid_generic" ];
   boot.initrd.kernelModules = [ ];
-  boot.kernelModules = [ "kvm-intel" ];
+  boot.kernelModules = [ "kvm-amd" ];
   boot.extraModulePackages = [ ];
 
   fileSystems."/" =
-    { device = "/dev/disk/by-uuid/22a9f643-a324-4481-b46b-24abc1cae851";
+  { 
+      device = "/dev/nvme0n1p2";
       fsType = "ext4";
-    };
+  };
+
+  fileSystems."/home" =
+  { 
+      device = "/dev/nvme1n1p1";
+      fsType = "ext4";
+  };
+
 
   fileSystems."/boot" =
   { 
-      device = "/dev/disk/by-uuid/BDBE-C36C";
+      device = "/dev/nvme0n1p1";
       fsType = "vfat";
       options = [ "fmask=0022" "dmask=0022" ];
   };
@@ -67,7 +75,10 @@
 
   nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
   hardware = {
-    cpu.intel.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
+    nvidia = {
+      package = config.boot.kernelPackages.nvidiaPackages.stable;
+    };
+    cpu.amd.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
     bluetooth = {
       enable = true;
       powerOnBoot = true;
