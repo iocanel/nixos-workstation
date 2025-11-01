@@ -606,7 +606,7 @@
       # };
       networks = {
         eth1 = {
-          matchConfig.Name = "enp82s0u2u1u2";
+          matchConfig.Name = "enp196s0f0";
           DHCP = "ipv4";
         };
 
