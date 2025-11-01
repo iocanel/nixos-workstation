@@ -75,14 +75,48 @@
 
   nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
   hardware = {
+    # NVIDIA GPU configuration for hybrid setup
     nvidia = {
       package = config.boot.kernelPackages.nvidiaPackages.stable;
+      
+      # Enable PRIME for hybrid graphics (NVIDIA + AMD)
+      prime = {
+        # Bus IDs from lspci output
+        nvidiaBusId = "PCI:198:0:0";  # c6:00.0 in hex = 198:0:0 in decimal
+        amdgpuBusId = "PCI:199:0:0";  # c7:00.0 in hex = 199:0:0 in decimal
+        
+        # Enable offload mode for better battery life
+        offload = {
+          enable = true;
+          enableOffloadCmd = true;
+        };
+      };
+      
+      # Power management for laptops
+      powerManagement = {
+        enable = true;
+        finegrained = true;
+      };
+      
+      # Use open source kernel modules (recommended for newer cards)
+      open = false;  # Set to true if you want to try open source drivers
     };
+    
+    # AMD CPU microcode updates
     cpu.amd.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
+    
+    # Graphics support (replaces opengl in NixOS 24.05+)
+    graphics = {
+      enable = true;
+      enable32Bit = true;  # For 32-bit applications
+    };
+    
     bluetooth = {
       enable = true;
       powerOnBoot = true;
     };
-    
   };
+  
+  # Enable NVIDIA video drivers for X11
+  services.xserver.videoDrivers = [ "nvidia" ];
 }
