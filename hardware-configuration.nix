@@ -12,6 +12,10 @@
   boot.initrd.kernelModules = [ ];
   boot.kernelModules = [ 
     "kvm-amd"           # AMD virtualization
+    "usbhid"            # USB HID support
+    "hid_generic"       # Generic HID support
+    "hid_multitouch"    # Multitouch HID support
+    "usb_storage"       # USB storage support
   ];
   boot.extraModulePackages = [ ];
   
@@ -24,6 +28,13 @@
     # Enable enhanced security features
     "spec_store_bypass_disable=on"
     "l1tf=full,force"
+    
+    # USB optimizations for docks/hubs
+    "usbcore.autosuspend=-1"     # Disable USB autosuspend globally
+    "usb-storage.delay_use=0"    # Reduce USB storage detection delay
+    "usbhid.mousepoll=1"         # Increase mouse polling rate
+    "usbcore.old_scheme_first=1" # Try old USB enumeration first
+    "amd_iommu=on"               # Ensures PCIe hotplug/IOMMU plays nicely with TB tunnels
   ];
 
   fileSystems."/" =
@@ -138,9 +149,52 @@
     };
     
     # Power management optimizations for laptop
-    acpilight.enable = true;  # Better backlight control
+    acpilight.enable = true;  # Better backlight control 
   };
   
   # Enable NVIDIA video drivers for X11
   services.xserver.videoDrivers = [ "nvidia" ];
+  
+  # USB and input device services
+  services = {
+    hardware = {
+      bolt = {
+        enable = true;  # Thunderbolt device management
+      };
+    };
+    # Enable udev for proper device detection
+    udev = {
+      extraRules = ''
+        # USB device rules for better dock/hub support
+        SUBSYSTEM=="usb", ATTR{power/autosuspend}="-1"
+        SUBSYSTEM=="usb", TEST=="power/control", ATTR{power/control}="on"
+        
+        # Input device rules
+        SUBSYSTEM=="input", GROUP="input", MODE="0664"
+        SUBSYSTEM=="hidraw", GROUP="input", MODE="0664"
+        
+        # USB HID device rules
+        KERNEL=="hidraw*", SUBSYSTEM=="hidraw", MODE="0664", GROUP="input"
+        
+        # Mouse and keyboard specific rules
+        SUBSYSTEM=="input", KERNEL=="mouse*", GROUP="input", MODE="0664"
+        SUBSYSTEM=="input", KERNEL=="event*", GROUP="input", MODE="0664"
+      '';
+      packages = [ pkgs.usbutils ];
+    };
+  };
+  
+  # Power management settings
+  powerManagement = {
+    # Disable USB autosuspend to prevent disconnects
+    powerUpCommands = ''
+      echo -1 > /sys/module/usbcore/parameters/autosuspend
+      for usb in /sys/bus/usb/devices/*/power/autosuspend; do
+        [ -w "$usb" ] && echo -1 > "$usb"
+      done
+      for usb in /sys/bus/usb/devices/*/power/control; do
+        [ -w "$usb" ] && echo on > "$usb"
+      done
+    '';
+  };
 }

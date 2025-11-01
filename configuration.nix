@@ -208,6 +208,11 @@
       nssmdns4 = true;
       openFirewall = true;
     };
+    
+    # Enable upower for better power management with docks
+    upower = {
+      enable = true;
+    };
   };
     
   # Define a user account. Don't forget to set a password with ‘passwd’.
@@ -671,6 +676,18 @@
       
       # Rule to ignore /dev/video5 as it is not working properly
       #KERNEL=="video5", SUBSYSTEM=="video4linux", OPTIONS+="ignore_device"
+      
+      # Lenovo Thunderbolt 3 dock support
+      # Automatically authorize Lenovo Thunderbolt devices
+      ACTION=="add", SUBSYSTEM=="thunderbolt", ATTR{vendor}=="0x17aa", ATTR{authorized}=="0", ATTR{authorized}="1"
+      
+      # Specific rules for common Lenovo Thunderbolt 3 dock models
+      ACTION=="add", SUBSYSTEM=="thunderbolt", ATTR{vendor}=="0x17aa", ATTR{device}=="0x1012", ATTR{authorized}="1"
+      ACTION=="add", SUBSYSTEM=="thunderbolt", ATTR{vendor}=="0x17aa", ATTR{device}=="0x1010", ATTR{authorized}="1"
+      ACTION=="add", SUBSYSTEM=="thunderbolt", ATTR{vendor}=="0x17aa", ATTR{device}=="0x402b", ATTR{authorized}="1"
+      
+      # Enable USB devices connected through Thunderbolt dock
+      ACTION=="add", SUBSYSTEM=="usb", ATTRS{idVendor}=="17aa", ATTR{authorized}="1"
     '';
   };
 
