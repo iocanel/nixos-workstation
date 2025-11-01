@@ -57,7 +57,6 @@
       ./hardware-configuration.nix
       ./modules/deluge.nix
       ./modules/superdrive.nix
-      ./modules/monitor-hotplug.nix
       <home-manager/nixos>
     ];
 
@@ -119,10 +118,6 @@
     };
     
     displayManager = {
-      sddm = {
-        enable = false;
-        theme = "chili";
-      };
     };
     
     greetd = {
@@ -203,10 +198,6 @@
 
     displayManager = {
       defaultSession = "none+i3";
-     # sddm = {
-     #   enable = true;
-     #   theme = "chili";
-     # };
     };
 
     clipmenu.enable = false;
@@ -519,9 +510,6 @@
     superdrive = {
       enable = true;
     };
-    monitor-hotplug = {
-      enable = true;
-    };
   };
 
   #
@@ -600,36 +588,9 @@
           RemainAfterExit = true;
         };
       };
-#      hotplug-monitor = {
-#        description = "Hotplug monitor";
-#        wantedBy = [ "graphical.target" ];
-#        serviceConfig = {
-#          Type = "oneshot";
-#          ExecStart = "${pkgs.bash}/bin/bash -c /etc/udev/scripts/monitor-hotplug.sh";
-#          Restart = "on-failure";
-#        };
-#      };
-      #check-media-mount = {
-      #  description = "Start/Stop media services based on mount status";
-      #  after = [ "network.target" ];
-      #  serviceConfig = {
-      #    ExecStart = "/etc/local/bin/check-media-mounts.sh";
-      #    Type = "oneshot";
-      #    RemainAfterExit = true; # Prevents the service from being re-triggered unnecessarily
-      #    TimeoutStartSec = "30s";
-      #  };
-      #  wantedBy = [ "check-media-mount.path" ];
-      #};
     };
     
     paths = {
-      #check-media-mount = {
-      #  description = "Monitor media mounts";
-      #  pathConfig = {
-      #    PathExists = "/mnt/media/healthcheck";  # Change this to your actual mount point
-      #  };
-      #  wantedBy = [ "multi-user.target" ];
-      #};
     };
 
     network = {
@@ -670,13 +631,6 @@
             storeOnly = true;
           };          
         };
-        sddm = {
-          gnupg = {
-            enable = true;
-            noAutostart = true;
-            storeOnly = true;
-          };
-        };
         swaylock = {
         };
       };
@@ -697,26 +651,6 @@
      NIXOS_OZONE_WL = "1";  # Chromium/Electron
    };
 
-  #
-  # udev
-  #
-#  environment.etc."udev/scripts/monitor-hotplug.sh" = {
-#    text = ''
-#    #!/bin/bash
-#    export DISPLAY=:0
-#    EXTERNAL_MON=`${pkgs.xorg.xrandr}/bin/xrandr --query | grep '\bconnected\b' | ${pkgs.gawk}/bin/awk -F" " '{print $1}' | grep -v eDP-1`
-#    if [ -z "$EXTERNAL_MON" ]; then
-#      echo "No external monitor found."
-#      exit 0
-#    fi
-#    echo "Setting $EXTERNAL_MON left of main."
-#
-#    ${pkgs.xorg.xrandr}/bin/xrandr --output $EXTERNAL_MON --off
-#    ${pkgs.xorg.xrandr}/bin/xrandr --output $EXTERNAL_MON --auto --left-of eDP-1
-#    ${pkgs.xorg.xrandr}/bin/xrandr --output $EXTERNAL_MON --left-of eDP-1
-#    '';
-#    mode = "0755";
-#  };
 
   environment.etc."udev/scripts/deauth-usb.sh" = {
     text = ''
@@ -733,9 +667,6 @@
     extraRules = ''
       # Rule to deauthorize USB device
       #ACTION=="add", SUBSYSTEM=="usb", ENV{DEVPATH}!="", RUN+="/lib/udev/scripts/deauth-usb.sh %p"
-        
-      # Rule to configure monitors on hotplug event
-      #ACTION=="add", SUBSYSTEM=="drm", RUN+="${pkgs.systemd}/bin/systemctl start hotplug-monitor.service"
       
       # Rule to ignore /dev/video5 as it is not working properly
       #KERNEL=="video5", SUBSYSTEM=="video4linux", OPTIONS+="ignore_device"
