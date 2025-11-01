@@ -15,20 +15,20 @@
 
   fileSystems."/" =
   { 
-      device = "/dev/nvme0n1p2";
+      device = "/dev/disk/by-uuid/8320826a-0f92-4294-a25e-a1cde9448769";
       fsType = "ext4";
   };
 
   fileSystems."/home" =
   { 
-      device = "/dev/nvme1n1p1";
+      device = "/dev/disk/by-uuid/4882f657-3753-4e28-bd2e-25d259cdff4f";
       fsType = "ext4";
   };
 
 
   fileSystems."/boot" =
   { 
-      device = "/dev/nvme0n1p1";
+      device = "/dev/disk/by-uuid/CC3E-D41A";
       fsType = "vfat";
       options = [ "fmask=0022" "dmask=0022" ];
   };
