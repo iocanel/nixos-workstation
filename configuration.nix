@@ -24,7 +24,7 @@
 # $ nix-env --delete-generations 7d
 #
 
-{ config, pkgs, fetchFromGithub, ... }:
+{ config, pkgs, lib, fetchFromGithub, ... }:
   let
     #
     # Define the paths to your custom packages
@@ -560,6 +560,7 @@
   documentation.man.generateCaches = false;
 
   systemd = {
+    services.systemd-networkd-wait-online.enable = lib.mkForce false;
     mounts = [
       {
         what = "192.168.1.250:/volume2/downloads";
