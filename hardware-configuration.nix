@@ -10,8 +10,21 @@
 
   boot.initrd.availableKernelModules = [ "ahci" "xhci_pci" "thunderbolt" "nvme" "usb_storage" "usbhid" "sd_mod" "sr_mod" "rtsx_pci_sdmmc" "r8152" "usbnet" "hid_generic" ];
   boot.initrd.kernelModules = [ ];
-  boot.kernelModules = [ "kvm-amd" ];
+  boot.kernelModules = [ 
+    "kvm-amd"           # AMD virtualization
+  ];
   boot.extraModulePackages = [ ];
+  
+  # CPU-specific optimizations for AMD Ryzen AI 7 PRO 350 (Zen 5)
+  boot.kernelParams = [
+    # Enable AMD P-State for better power management
+    "amd_pstate=active"
+    # Optimize for modern Zen 5 architecture
+    "processor.max_cstate=1"  # Better latency for performance workloads
+    # Enable enhanced security features
+    "spec_store_bypass_disable=on"
+    "l1tf=full,force"
+  ];
 
   fileSystems."/" =
   { 
@@ -102,8 +115,16 @@
       open = false;  # Set to true if you want to try open source drivers
     };
     
-    # AMD CPU microcode updates
-    cpu.amd.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
+    # AMD Ryzen AI 7 PRO 350 (Zen 5) optimizations
+    cpu.amd = {
+      updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
+    };
+    
+    # Enable advanced CPU features
+    enableRedistributableFirmware = true;
+    
+    # AMD GPU driver support
+    amdgpu.amdvlk.enable = true;
     
     # Graphics support (replaces opengl in NixOS 24.05+)
     graphics = {
@@ -115,6 +136,9 @@
       enable = true;
       powerOnBoot = true;
     };
+    
+    # Power management optimizations for laptop
+    acpilight.enable = true;  # Better backlight control
   };
   
   # Enable NVIDIA video drivers for X11
